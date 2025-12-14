@@ -74,6 +74,11 @@ func (demo *SqliteDemo) Disconnect() {
 
 func (demo *SqliteDemo) RunDemo() error {
 
+	// 1. Create tables if they don't exist
+	if err := demo.createTables(); err != nil {
+		return err
+	}
+
 	// 2. INSERT operations
 	if err := demo.insertOperations(); err != nil {
 		return err
@@ -109,6 +114,104 @@ func (demo *SqliteDemo) RunDemo() error {
 		return err
 	}
 
+	return nil
+}
+
+func (demo *SqliteDemo) createTables() error {
+	fmt.Println("Creating tables if they don't exist...")
+	fmt.Println(strings.Repeat("-", 30))
+
+	// Create users table
+	createUsersTable := `
+	CREATE TABLE IF NOT EXISTS users (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL,
+		email TEXT UNIQUE NOT NULL,
+		age INTEGER,
+		created_at TEXT DEFAULT CURRENT_TIMESTAMP
+	);`
+	
+	_, err := demo.db.Exec(createUsersTable)
+	if err != nil {
+		return fmt.Errorf("failed to create users table: %v", err)
+	}
+
+	// Create products table
+	createProductsTable := `
+	CREATE TABLE IF NOT EXISTS products (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL,
+		price REAL NOT NULL,
+		category TEXT,
+		stock INTEGER
+	);`
+	
+	_, err = demo.db.Exec(createProductsTable)
+	if err != nil {
+		return fmt.Errorf("failed to create products table: %v", err)
+	}
+
+	// Insert initial users if table is empty
+	var userCount int
+	err = demo.db.QueryRow("SELECT COUNT(*) FROM users").Scan(&userCount)
+	if err != nil {
+		return fmt.Errorf("failed to check user count: %v", err)
+	}
+
+	if userCount == 0 {
+		// Insert some initial users
+		initialUsers := []struct {
+			name  string
+			email string
+			age   int
+		}{
+			{"Alice Johnson", "alice@example.com", 28},
+			{"Bob Smith", "bob@example.com", 32},
+			{"Carol Davis", "carol@example.com", 25},
+		}
+
+		for _, user := range initialUsers {
+			_, err := demo.db.Exec("INSERT INTO users (name, email, age) VALUES (?, ?, ?)",
+				user.name, user.email, user.age)
+			if err != nil {
+				return fmt.Errorf("failed to insert initial user %s: %v", user.name, err)
+			}
+		}
+		fmt.Println("Inserted initial users")
+	}
+
+	// Insert initial products if table is empty
+	var productCount int
+	err = demo.db.QueryRow("SELECT COUNT(*) FROM products").Scan(&productCount)
+	if err != nil {
+		return fmt.Errorf("failed to check product count: %v", err)
+	}
+
+	if productCount == 0 {
+		// Insert some initial products
+		initialProducts := []struct {
+			name     string
+			price    float64
+			category string
+			stock    int
+		}{
+			{"Coffee Mug", 12.99, "Kitchen", 50},
+			{"Book", 24.99, "Education", 100},
+			{"Laptop Stand", 45.00, "Office", 25},
+		}
+
+		for _, product := range initialProducts {
+			_, err := demo.db.Exec("INSERT INTO products (name, price, category, stock) VALUES (?, ?, ?, ?)",
+				product.name, product.price, product.category, product.stock)
+			if err != nil {
+				return fmt.Errorf("failed to insert initial product %s: %v", product.name, err)
+			}
+		}
+		fmt.Println("Inserted initial products")
+	}
+
+	fmt.Println("Tables ready!")
+	fmt.Println()
 	return nil
 }
 
